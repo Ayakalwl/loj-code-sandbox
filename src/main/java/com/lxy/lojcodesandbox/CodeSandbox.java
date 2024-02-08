@@ -8,7 +8,7 @@ import com.lxy.lojcodesandbox.model.ExecuteCodeResponse;
  */
 public interface CodeSandbox {
     /**
-     * 通用接口方法
+     * 执行方法
      *
      *
      * @param executeCodeRequest

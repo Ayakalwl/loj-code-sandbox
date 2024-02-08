@@ -2,6 +2,7 @@ package com.lxy.lojcodesandbox.utils;
 
 import cn.hutool.core.util.StrUtil;
 import com.lxy.lojcodesandbox.model.ExecuteMessage;
+import org.springframework.util.StopWatch;
 
 import java.io.*;
 
@@ -21,6 +22,8 @@ public class ProcessUtils {
         ExecuteMessage executeMessage = new ExecuteMessage();
 
         try {
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
             // 等待程序执行，获取错误码
             int exitValue = runProcess.waitFor();
             executeMessage.setExitValue(exitValue);
@@ -60,6 +63,9 @@ public class ProcessUtils {
                 }
                 executeMessage.setErrorMessage(errorCompileOutputStringBuilder.toString());
             }
+            stopWatch.stop();
+            // 获取时间
+            executeMessage.setTime(stopWatch.getLastTaskTimeMillis());
         } catch (Exception e) {
             e.printStackTrace();
         }

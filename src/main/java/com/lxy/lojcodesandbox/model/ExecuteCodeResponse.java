@@ -12,6 +12,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExecuteCodeResponse {
+    /**
+     * 用例输出信息
+     */
     private List<String> outputList;
 
     /**

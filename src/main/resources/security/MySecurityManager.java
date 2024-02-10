@@ -1,5 +1,3 @@
-package com.lxy.lojcodesandbox.security;
-
 import java.security.Permission;
 
 public class MySecurityManager extends SecurityManager {

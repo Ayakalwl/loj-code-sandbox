@@ -9,6 +9,7 @@ import com.lxy.lojcodesandbox.model.ExecuteCodeRequest;
 import com.lxy.lojcodesandbox.model.ExecuteCodeResponse;
 import com.lxy.lojcodesandbox.model.ExecuteMessage;
 import com.lxy.lojcodesandbox.model.JudgeInfo;
+import com.lxy.lojcodesandbox.security.DefaultSecurityManager;
 import com.lxy.lojcodesandbox.utils.ProcessUtils;
 
 import java.io.File;
@@ -26,6 +27,10 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     private static final long TIME_OUT = 5000L;
 
+    private static final String SECURITY_MANAGER_PATH = "E:\\java项目\\loj-code-sandbox\\src\\main\\resources\\security";
+
+    private static final String SECURITY_MANAGER_CLASS_NAME = "MySecurityManager";
+
     private static final List<String> blackList = Arrays.asList("Files", "exec");
 
     private static final WordTree WORD_TREE;
@@ -40,7 +45,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         JavaNativeCodeSandbox javaNativeCodeSandbox = new JavaNativeCodeSandbox();
         ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
         executeCodeRequest.setInputList(Arrays.asList("1 2", "1 3"));
-        String code = ResourceUtil.readStr("testCode/simpleComputeArgs/Main.java", StandardCharsets.UTF_8);
+        String code = ResourceUtil.readStr("testCode/unsafeCode/RunFileError.java", StandardCharsets.UTF_8);
         executeCodeRequest.setCode(code);
         executeCodeRequest.setLanguage("java");
         ExecuteCodeResponse executeCodeResponse = javaNativeCodeSandbox.executeCode(executeCodeRequest);
@@ -50,17 +55,19 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     @Override
     public ExecuteCodeResponse executeCode(ExecuteCodeRequest executeCodeRequest) {
+//        System.setSecurityManager(new DefaultSecurityManager());
+
         List<String> inputList = executeCodeRequest.getInputList();
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
 
-
         //  校验代码中是否包含黑名单中的禁用词
-        FoundWord foundWord = WORD_TREE.matchWord(code);
-        if (foundWord != null) {
-            System.out.println("包含禁止词：" + foundWord.getFoundWord());
-            return null;
-        }
+//        FoundWord foundWord = WORD_TREE.matchWord(code);
+//        if (foundWord != null) {
+//            System.out.println("包含禁止词：" + foundWord.getFoundWord());
+//            return null;
+//        }
+
         // 1.把用户的代码保存为文件
 
         String userDir = System.getProperty("user.dir");
@@ -87,7 +94,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         // 3.执行代码，得到输出结果
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList){
-            String runCmd = String.format("java -Xmx256m -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
+            String runCmd = String.format("java -Xmx256m -Dfile.encoding=UTF-8 -cp %s;%s -Djava.security.manager=%s Main %s", userCodeParentPath, SECURITY_MANAGER_PATH, SECURITY_MANAGER_CLASS_NAME, inputArgs);
             try {
                 Process runProcess = Runtime.getRuntime().exec(runCmd);
                 new Thread(() -> {

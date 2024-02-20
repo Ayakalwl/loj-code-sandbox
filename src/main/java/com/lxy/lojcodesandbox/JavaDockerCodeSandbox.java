@@ -2,24 +2,21 @@ package com.lxy.lojcodesandbox;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.dfa.WordTree;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.PullImageCmd;
-import com.github.dockerjava.api.command.PullImageResultCallback;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.PullResponseItem;
-import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.api.command.*;
+import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
 import com.lxy.lojcodesandbox.model.ExecuteCodeRequest;
 import com.lxy.lojcodesandbox.model.ExecuteCodeResponse;
 import com.lxy.lojcodesandbox.model.ExecuteMessage;
 import com.lxy.lojcodesandbox.model.JudgeInfo;
 import com.lxy.lojcodesandbox.utils.ProcessUtils;
 import com.sun.org.apache.bcel.internal.generic.NEW;
+import org.springframework.util.StopWatch;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class JavaDockerCodeSandbox implements CodeSandbox {
 
@@ -133,7 +131,57 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         // 启动容器
         dockerClient.startContainerCmd(containerId).exec();
 
+        // docker exec keen_blackwell java -cp /app Main 1 3
+        // 执行命令并获取结果
+        List<ExecuteMessage> executeMessageList = new ArrayList<>();
+        for (String inputArgs : inputList){
+            StopWatch stopWatch = new StopWatch();
+            String[] inputArgsArray = inputArgs.split(" ");
+            String[] cmdArray = ArrayUtil.append(new String[]{"java", "-cp", "/app", "Main"}, inputArgsArray);
+            ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId)
+                    .withCmd(cmdArray)
+                    .withAttachStderr(true)
+                    .withAttachStdin(true)
+                    .withAttachStdout(true)
+                    .exec();
+            System.out.println("创建执行命令：" + execCreateCmdResponse);
+
+            ExecuteMessage executeMessage = new ExecuteMessage();
+            final String[] message = {null};
+            final String[] errorMessage = {null};
+            long time = 0L;
+            String execId = execCreateCmdResponse.getId();
+            ExecStartResultCallback execStartResultCallback = new ExecStartResultCallback() {
+                public void onNext(Frame frame) {
+                    StreamType streamType = frame.getStreamType();
+                    if (StreamType.STDERR.equals(streamType)) {
+                        errorMessage[0] = new String(frame.getPayload());
+                        System.out.println("输出错误结果：" + errorMessage[0]);
+                    } else {
+                        message[0] = new String(frame.getPayload());
+                        System.out.println("输出结果：" + message[0]);
+                    }
+                    super.onNext(frame);
+                }
+            };
+            try {
+                stopWatch.start();
+                dockerClient.execStartCmd(execId)
+                        .exec(execStartResultCallback)
+                        .awaitCompletion();
+                stopWatch.stop();
+                time = stopWatch.getLastTaskTimeMillis();
+            } catch (InterruptedException e) {
+                System.out.println("程序执行异常");
+                throw new RuntimeException(e);
+            }
+            executeMessage.setMessage(message[0]);
+            executeMessage.setErrorMessage(errorMessage[0]);
+            executeMessage.setTime(time);
+            executeMessageList.add(executeMessage);
+        }
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
+
         return executeCodeResponse;
     }
 

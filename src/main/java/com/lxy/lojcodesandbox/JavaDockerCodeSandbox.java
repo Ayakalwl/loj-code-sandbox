@@ -6,6 +6,7 @@ import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.dfa.WordTree;
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -18,7 +19,9 @@ import com.lxy.lojcodesandbox.utils.ProcessUtils;
 import com.sun.org.apache.bcel.internal.generic.NEW;
 import org.springframework.util.StopWatch;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -164,13 +167,49 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
                     super.onNext(frame);
                 }
             };
+
+            final long[] maxMemory = {0L};
+
+            // 获取占用的内存
+            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
+            ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback<Statistics>() {
+
+                @Override
+                public void onNext(Statistics statistics) {
+                    System.out.println("内存占用：" + statistics.getMemoryStats().getUsage());
+                    maxMemory[0] = Math.max(statistics.getMemoryStats().getUsage(), maxMemory[0]);
+                }
+
+                @Override
+                public void close() throws IOException {
+
+                }
+
+                @Override
+                public void onStart(Closeable closeable) {
+
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+
+                }
+
+                @Override
+                public void onComplete() {
+
+                }
+            });
+            statsCmd.exec(statisticsResultCallback);
+
             try {
                 stopWatch.start();
                 dockerClient.execStartCmd(execId)
                         .exec(execStartResultCallback)
-                        .awaitCompletion();
+                        .awaitCompletion(TIME_OUT, TimeUnit.MICROSECONDS);
                 stopWatch.stop();
                 time = stopWatch.getLastTaskTimeMillis();
+                statsCmd.close();
             } catch (InterruptedException e) {
                 System.out.println("程序执行异常");
                 throw new RuntimeException(e);
@@ -178,8 +217,12 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
             executeMessage.setMessage(message[0]);
             executeMessage.setErrorMessage(errorMessage[0]);
             executeMessage.setTime(time);
+            executeMessage.setMemory(maxMemory[0]);
             executeMessageList.add(executeMessage);
         }
+
+
+
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
 
         return executeCodeResponse;

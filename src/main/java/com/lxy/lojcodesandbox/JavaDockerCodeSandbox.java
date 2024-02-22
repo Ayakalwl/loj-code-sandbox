@@ -119,10 +119,14 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         CreateContainerCmd containerCmd = dockerClient.createContainerCmd(image);
         HostConfig hostConfig = new HostConfig();
         hostConfig.withMemory(100 * 1000 * 1000L);
+        hostConfig.withMemorySwap(0L);
         hostConfig.withCpuCount(1L);
+//        hostConfig.withSecurityOpts(Arrays.asList("seccomp=安全管理配置字符串"));
         hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app")));
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)
+                .withNetworkDisabled(true)
+                .withReadonlyRootfs(true)
                 .withAttachStdin(true)
                 .withAttachStderr(true)
                 .withAttachStdout(true)
@@ -154,7 +158,15 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
             final String[] errorMessage = {null};
             long time = 0L;
             String execId = execCreateCmdResponse.getId();
+            // 判断是否超时
+            final boolean[] timeout = {true};
             ExecStartResultCallback execStartResultCallback = new ExecStartResultCallback() {
+                @Override
+                public void onComplete() {
+                    timeout[0] = false;
+                    super.onComplete();
+                }
+
                 public void onNext(Frame frame) {
                     StreamType streamType = frame.getStreamType();
                     if (StreamType.STDERR.equals(streamType)) {

@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Java 代码沙箱模板方法的实现
+ */
 @Slf4j
 public abstract class JavaCodeSandboxTempPlate implements CodeSandbox{
 

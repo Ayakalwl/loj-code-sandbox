@@ -3,8 +3,6 @@ package com.lxy.lojcodesandbox;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.ArrayUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.dfa.WordTree;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.*;
@@ -16,7 +14,6 @@ import com.lxy.lojcodesandbox.model.ExecuteCodeResponse;
 import com.lxy.lojcodesandbox.model.ExecuteMessage;
 import com.lxy.lojcodesandbox.model.JudgeInfo;
 import com.lxy.lojcodesandbox.utils.ProcessUtils;
-import com.sun.org.apache.bcel.internal.generic.NEW;
 import org.springframework.util.StopWatch;
 
 import java.io.Closeable;
@@ -29,17 +26,22 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
+public class JavaDockerCodeSandboxOld implements CodeSandbox {
 
     private static final String GLOBAL_CODE_DIR_NAME = "tmpCode";
 
     private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
 
     private static final long TIME_OUT = 5000L;
+
+    private static final String SECURITY_MANAGER_PATH = "E:\\java项目\\loj-code-sandbox\\src\\main\\resources\\security";
+
+    private static final String SECURITY_MANAGER_CLASS_NAME = "MySecurityManager";
+
     private static final Boolean FIRST_INIT = false;
 
     public static void main(String[] args) {
-        JavaDockerCodeSandbox javaNativeCodeSandbox = new JavaDockerCodeSandbox();
+        JavaDockerCodeSandboxOld javaNativeCodeSandbox = new JavaDockerCodeSandboxOld();
         ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
         executeCodeRequest.setInputList(Arrays.asList("1 2", "1 3"));
         String code = ResourceUtil.readStr("testCode/simpleComputeArgs/Main.java", StandardCharsets.UTF_8);
@@ -116,19 +118,7 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
         hostConfig.withMemory(100 * 1000 * 1000L);
         hostConfig.withMemorySwap(0L);
         hostConfig.withCpuCount(1L);
-        hostConfig.withSecurityOpts(Arrays.asList("seccomp={\n" +
-                "  \"defaultAction\": \"SCMP_ACT_ALLOW\",\n" +
-                "  \"syscalls\": [\n" +
-                "    {\n" +
-                "      \"name\": \"write\",\n" +
-                "      \"action\": \"SCMP_ACT_ALLOW\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"name\": \"read\",\n" +
-                "      \"action\": \"SCMP_ACT_ALLOW\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}"));
+//        hostConfig.withSecurityOpts(Arrays.asList("seccomp=安全管理配置字符串"));
         hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app")));
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)
@@ -239,40 +229,10 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
             executeMessage.setMemory(maxMemory[0]);
             executeMessageList.add(executeMessage);
         }
-        // 4.收集整理输出结果
-        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
-        List<String> outputList = new ArrayList<>();
-        long maxTime = 0;
-        for (ExecuteMessage executeMessage : executeMessageList) {
-            // 执行中存在错误
-            String errorMessage = executeMessage.getErrorMessage();
-            if (StrUtil.isNotBlank(errorMessage)) {
-                executeCodeResponse.setMessage(errorMessage);
-                executeCodeResponse.setStatus(3);
-                break;
-            }
-            outputList.add(executeMessage.getMessage());
-            Long time = executeMessage.getTime();
-            if (time != null) {
-                maxTime = Math.max(maxTime, time);
-            }
-        }
-        // 正常运行完成
-        if (outputList.size() == executeMessageList.size()) {
-            executeCodeResponse.setStatus(1);
-        }
-        executeCodeResponse.setOutputList(outputList);
-        JudgeInfo judgeInfo = new JudgeInfo();
-        judgeInfo.setTime(maxTime);
-        // 要借助第三方库来获取内存占用，非常麻烦，此处不做实现
-//        judgeInfo.setMemory();
-        executeCodeResponse.setJudgeInfo(judgeInfo);
 
-        // 5.文件清理
-        if (userCodeFile.getParentFile() != null) {
-            boolean del = FileUtil.del(userCodeParentPath);
-            System.out.println("删除" + (del ? "成功" : "失败"));
-        }
+
+
+        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
 
         return executeCodeResponse;
     }

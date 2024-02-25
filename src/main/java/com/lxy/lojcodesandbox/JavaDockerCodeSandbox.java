@@ -17,6 +17,7 @@ import com.lxy.lojcodesandbox.model.ExecuteMessage;
 import com.lxy.lojcodesandbox.model.JudgeInfo;
 import com.lxy.lojcodesandbox.utils.ProcessUtils;
 import com.sun.org.apache.bcel.internal.generic.NEW;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StopWatch;
 
 import java.io.Closeable;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+@Component
 public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
 
 

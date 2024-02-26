@@ -91,19 +91,8 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
         hostConfig.withMemory(100 * 1000 * 1000L);
         hostConfig.withMemorySwap(0L);
         hostConfig.withCpuCount(1L);
-        hostConfig.withSecurityOpts(Arrays.asList("seccomp={\n" +
-                "  \"defaultAction\": \"SCMP_ACT_ALLOW\",\n" +
-                "  \"syscalls\": [\n" +
-                "    {\n" +
-                "      \"name\": \"write\",\n" +
-                "      \"action\": \"SCMP_ACT_ALLOW\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"name\": \"read\",\n" +
-                "      \"action\": \"SCMP_ACT_ALLOW\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}"));
+        String profileConfig = ResourceUtil.readUtf8Str("profile.json");
+        hostConfig.withSecurityOpts(Arrays.asList("seccomp=" + profileConfig));
         hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app")));
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)

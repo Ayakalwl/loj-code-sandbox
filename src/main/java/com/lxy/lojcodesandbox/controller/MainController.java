@@ -47,6 +47,6 @@ public class MainController {
         if (executeCodeRequest == null) {
             throw new RuntimeException("请求参数为空");
         }
-        return javaDockerCodeSandbox.executeCode(executeCodeRequest);
+        return javaNativeCodeSandbox.executeCode(executeCodeRequest);
     }
 }

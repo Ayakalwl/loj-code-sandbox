@@ -34,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
 
 
-    private static final long TIME_OUT = 5000L;
-    private static final Boolean FIRST_INIT = true;
+    private static final long TIME_OUT = 10000L;
+    private static final Boolean FIRST_INIT = false;
 
 //    public static void main(String[] args) {
 //        JavaDockerCodeSandbox javaNativeCodeSandbox = new JavaDockerCodeSandbox();
@@ -94,6 +94,7 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
         String profileConfig = ResourceUtil.readUtf8Str("profile.json");
         hostConfig.withSecurityOpts(Arrays.asList("seccomp=" + profileConfig));
         hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app")));
+        System.out.println("本机文件路径："+ userCodeParentPath);
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)
                 .withNetworkDisabled(true)
@@ -110,12 +111,12 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
         dockerClient.startContainerCmd(containerId).exec();
 
         // docker exec keen_blackwell java -cp /app Main 1 3
-        // 执行命令并获取结果
+        // 执创建执行命令
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList){
             StopWatch stopWatch = new StopWatch();
             String[] inputArgsArray = inputArgs.split(" ");
-            String[] cmdArray = ArrayUtil.append(new String[]{"java", "-cp", "/app", "Main"}, inputArgsArray);
+            String[] cmdArray = ArrayUtil.append(new String[]{"java", "-cp", "/app", "Main.class"}, inputArgsArray);
             ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId)
                     .withCmd(cmdArray)
                     .withAttachStderr(true)
@@ -129,8 +130,51 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
             final String[] errorMessage = {null};
             long time = 0L;
             String execId = execCreateCmdResponse.getId();
+
             // 判断是否超时
             final boolean[] timeout = {true};
+
+            // 默认内存消耗
+            final long[] maxMemory = {0L};
+
+            // 获取占用的内存
+            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
+            // 创建内存监控异步输出
+            ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback<Statistics>() {
+
+                @Override
+                public void close() throws IOException {
+                    close();
+                }
+
+                @Override
+                public void onNext(Statistics statistics) {
+                    if (timeout[0] == false){
+                    }
+                    System.out.println("内存占用：" + statistics.getMemoryStats().getUsage());
+                    maxMemory[0] = Math.max(statistics.getMemoryStats().getUsage(), maxMemory[0]);
+                }
+
+
+
+                @Override
+                public void onStart(Closeable closeable) {
+
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+
+                }
+
+                @Override
+                public void onComplete() {
+
+                }
+            });
+            statsCmd.exec(statisticsResultCallback);
+
+            // 创建运行过程异步输出
             ExecStartResultCallback execStartResultCallback = new ExecStartResultCallback() {
                 @Override
                 public void onComplete() {
@@ -151,40 +195,7 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTempPlate {
                 }
             };
 
-            final long[] maxMemory = {0L};
-
-            // 获取占用的内存
-            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
-            ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback<Statistics>() {
-
-                @Override
-                public void onNext(Statistics statistics) {
-                    System.out.println("内存占用：" + statistics.getMemoryStats().getUsage());
-                    maxMemory[0] = Math.max(statistics.getMemoryStats().getUsage(), maxMemory[0]);
-                }
-
-                @Override
-                public void close() throws IOException {
-
-                }
-
-                @Override
-                public void onStart(Closeable closeable) {
-
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-
-                }
-
-                @Override
-                public void onComplete() {
-
-                }
-            });
-            statsCmd.exec(statisticsResultCallback);
-
+            // 运行执行命令
             try {
                 stopWatch.start();
                 dockerClient.execStartCmd(execId)

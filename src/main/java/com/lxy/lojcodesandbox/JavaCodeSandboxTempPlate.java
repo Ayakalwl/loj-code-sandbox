@@ -141,6 +141,7 @@ public abstract class JavaCodeSandboxTempPlate implements CodeSandbox{
     public ExecuteCodeResponse getOutputResponse(List<ExecuteMessage> executeMessageList){
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
         List<String> outputList = new ArrayList<>();
+        // 获取时间
         long maxTime = 0;
         for (ExecuteMessage executeMessage : executeMessageList) {
             String errorMessage = executeMessage.getErrorMessage();
@@ -156,6 +157,24 @@ public abstract class JavaCodeSandboxTempPlate implements CodeSandbox{
                 maxTime = Math.max(maxTime, time);
             }
         }
+
+        // 获取内存
+        long maxMemory = 0;
+        for (ExecuteMessage executeMessage : executeMessageList) {
+            String errorMessage = executeMessage.getErrorMessage();
+            // 执行中存在错误
+            if (StrUtil.isNotBlank(errorMessage)) {
+                executeCodeResponse.setMessage(errorMessage);
+                executeCodeResponse.setStatus(3);
+                break;
+            }
+            outputList.add(executeMessage.getMessage());
+            Long memory = executeMessage.getMemory();
+            if (memory != null) {
+                maxMemory = Math.max(maxMemory, memory);
+            }
+        }
+
         // 正常运行完成
         if (outputList.size() == executeMessageList.size()) {
             executeCodeResponse.setStatus(1);
@@ -164,7 +183,7 @@ public abstract class JavaCodeSandboxTempPlate implements CodeSandbox{
         JudgeInfo judgeInfo = new JudgeInfo();
         judgeInfo.setTime(maxTime);
         // 要借助第三方库来获取内存占用，非常麻烦，此处不做实现
-//        judgeInfo.setMemory();
+        judgeInfo.setMemory(maxMemory);
         executeCodeResponse.setJudgeInfo(judgeInfo);
         return executeCodeResponse;
     }
@@ -178,7 +197,7 @@ public abstract class JavaCodeSandboxTempPlate implements CodeSandbox{
         String userCodeParentPath = userCodeFile.getParentFile().getAbsolutePath();
         if (userCodeFile.getParentFile() != null) {
             boolean del = FileUtil.del(userCodeParentPath);
-            System.out.println("删除" + (del ? "成功" : "失败"));
+            System.out.println("删除编译文件" + (del ? "成功" : "失败"));
             return del;
         }
         return true;
